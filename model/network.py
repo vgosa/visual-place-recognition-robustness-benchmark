@@ -10,6 +10,7 @@ from os.path import join
 from transformers import ViTModel
 from google_drive_downloader import GoogleDriveDownloader as gdd
 from model.transvpr.feature_extractor import Extractor_base
+from model.transvpr.blocks import POOL
 
 from model.cct import cct_14_7x2_384
 from model.aggregation import Flatten
@@ -109,6 +110,8 @@ def get_aggregation(args):
         return aggregation.RRM(args.features_dim)
     elif args.aggregation in ['cls', 'seqpool']:
         return nn.Identity()
+    elif args.aggregation in ['pool']:
+        return POOL(256)
 
 
 def get_pretrained_model(args):
@@ -242,7 +245,8 @@ def get_backbone(args):
                 if int(name) > args.freeze_te:
                     for params in child.parameters():
                         params.requires_grad = True
-        args.features_dim = 256
+        backbone = Extractor_base()
+        # args.features_dim = 256
         return backbone
     elif args.backbone.startswith("selavpr"):
         backbone = vit_large(patch_size=14,img_size=518,init_values=1,block_chunks=0) 

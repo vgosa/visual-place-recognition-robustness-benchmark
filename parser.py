@@ -40,7 +40,7 @@ def parse_arguments():
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],
                         help="When (and if) to apply the l2 norm with shallow aggregation layers")
     parser.add_argument("--aggregation", type=str, default="netvlad", choices=["netvlad", "gem", "spoc", "mac", "rmac", "crn", "rrm",
-                                                                               "cls", "seqpool"])
+                                                                               "cls", "seqpool", "pool"])
     parser.add_argument('--netvlad_clusters', type=int, default=64, help="Number of clusters for NetVLAD layer.")
     parser.add_argument('--pca_dim', type=int, default=None, help="PCA dimension (number of principal components). If None, PCA is not used.")
     parser.add_argument('--fc_output_dim', type=int, default=None,
