@@ -18,6 +18,7 @@ while Radenovic's uses it after (and we use it before, which shows better
 results in VG)
 """
 
+from collections import OrderedDict
 import os
 import sys
 import torch
@@ -59,6 +60,20 @@ logging.info(f"The outputs are being saved in {args.save_dir}")
 ######################################### MODEL #########################################
 model = network.GeoLocalizationNet(args)
 model = model.to(args.device)
+if args.backbone.startswith("selavpr"):
+    # model = torch.nn.DataParallel(model)
+    if args.resume != None:
+        state_dict = torch.load(args.resume)["model_state_dict"]
+        if list(state_dict.keys())[0].startswith('module'):
+            state_dict = OrderedDict({k.replace('module.', ''): v for (k, v) in state_dict.items()})
+        model.load_state_dict(state_dict)
+
+    if args.pca_dim == None:
+        pca = None
+    else:
+        full_features_dim = args.features_dim
+        args.features_dim = args.pca_dim
+        pca = util.compute_pca(args, model, args.pca_dataset_folder, full_features_dim)
 
 if args.aggregation in ["netvlad", "crn"]:
     args.features_dim *= args.netvlad_clusters

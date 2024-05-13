@@ -4,16 +4,21 @@ import torch
 import logging
 import torchvision
 from torch import nn
+from torch.nn.parameter import Parameter
+import torch.nn.functional as F
 from os.path import join
 from transformers import ViTModel
 from google_drive_downloader import GoogleDriveDownloader as gdd
+from model.transvpr.feature_extractor import Extractor_base
 
 from model.cct import cct_14_7x2_384
 from model.aggregation import Flatten
 from model.normalization import L2Norm
+from model.SelaVPR.backbone.vision_transformer import vit_small, vit_base, vit_large, vit_giant2
 import model.aggregation as aggregation
 
-# Pretrained models on Google Landmarks v2 and Places 365
+
+# Pretrained models on Google Landmarks v2 and Places 365, MSLS and Pitts30k
 PRETRAINED_MODELS = {
     'resnet18_places'  : '1DnEQXhmPxtBUrRc81nAvT8z17bk-GBj5',
     'resnet50_places'  : '1zsY4mN4jJ-AsmV3h4hjbT72CBfJsgSGC',
@@ -22,8 +27,23 @@ PRETRAINED_MODELS = {
     'resnet18_gldv2'   : '1wkUeUXFXuPHuEvGTXVpuP5BMB-JJ1xke',
     'resnet50_gldv2'   : '1UDUv6mszlXNC1lv6McLdeBNMq9-kaA70',
     'resnet101_gldv2'  : '1apiRxMJpDlV0XmKlC5Na_Drg2jtGL-uE',
-    'vgg16_gldv2'      : '10Ov9JdO7gbyz6mB5x0v_VSAUMj91Ta4o'
+    'vgg16_gldv2'      : '10Ov9JdO7gbyz6mB5x0v_VSAUMj91Ta4o',
+    'transvpr_msls'    : '1ZQVmqG-9aD7U8FLwRQWmoyQaDZ-_2gqi',
+    'transvpr_pitts30k': '15ReehSufPjCHgW3QMseyJBuKU76V8Rvn',
 }
+
+
+class LocalAdapt(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.upconv1 = torch.nn.ConvTranspose2d(in_channels=1024, out_channels=256, kernel_size=3, stride=2, padding=1)
+        self.upconv2 = torch.nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=3, stride=2, padding=1)
+        self.relu = nn.ReLU(inplace=True)
+    def forward(self,x):
+        x = self.upconv1(x)
+        x = self.relu(x)
+        x = self.upconv2(x)
+        return x
 
 
 class GeoLocalizationNet(nn.Module):
@@ -34,6 +54,8 @@ class GeoLocalizationNet(nn.Module):
         self.backbone = get_backbone(args)
         self.arch_name = args.backbone
         self.aggregation = get_aggregation(args)
+        if args.backbone.startswith("selavpr"): # Add local adaptation layer
+            self.LocalAdapt = LocalAdapt()
 
         if args.aggregation in ["gem", "spoc", "mac", "rmac"]:
             if args.l2 == "before_pool":
@@ -51,6 +73,19 @@ class GeoLocalizationNet(nn.Module):
             args.features_dim = args.fc_output_dim
 
     def forward(self, x):
+        if self.arch_name.startswith("selavpr"):
+            x = self.backbone(x)
+            patch_feature = x["x_norm_patchtokens"].view(-1,16,16,1024)
+
+            x1 = patch_feature.permute(0, 3, 1, 2)
+            x1 = self.aggregation(x1) 
+            global_feature = torch.nn.functional.normalize(x1, p=2, dim=-1)
+
+            x0 = patch_feature.permute(0, 3, 1, 2)
+            x0 = self.LocalAdapt(x0)
+            x0 = x0.permute(0, 2, 3, 1)
+            local_feature = torch.nn.functional.normalize(x0, p=2, dim=-1)
+            return local_feature, global_feature
         x = self.backbone(x)
         x = self.aggregation(x)
         return x
@@ -79,6 +114,7 @@ def get_aggregation(args):
 def get_pretrained_model(args):
     if args.pretrain == 'places':  num_classes = 365
     elif args.pretrain == 'gldv2':  num_classes = 512
+    elif args.pretrain == 'msls':  num_classes = 256
     
     if args.backbone.startswith("resnet18"):
         model = torchvision.models.resnet18(num_classes=num_classes)
@@ -88,6 +124,8 @@ def get_pretrained_model(args):
         model = torchvision.models.resnet101(num_classes=num_classes)
     elif args.backbone.startswith("vgg16"):
         model = torchvision.models.vgg16(num_classes=num_classes)
+    elif args.backbone.startswith("transvpr"):
+        model = Extractor_base()
     
     if args.backbone.startswith('resnet'):
         model_name = args.backbone.split('conv')[0] + "_" + args.pretrain
@@ -98,6 +136,12 @@ def get_pretrained_model(args):
     if not os.path.exists(file_path):
         gdd.download_file_from_google_drive(file_id=PRETRAINED_MODELS[model_name],
                                             dest_path=file_path)
+    print(f'File Path to weights: {file_path}')
+    if args.backbone.startswith("transvpr"):
+        model_dict = model.state_dict()
+        state_dict = torch.load(file_path)
+        model_dict.update(state_dict.items())
+        model.load_state_dict(model_dict)
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
     return model
@@ -105,7 +149,7 @@ def get_pretrained_model(args):
 
 def get_backbone(args):
     # The aggregation layer works differently based on the type of architecture
-    args.work_with_tokens = args.backbone.startswith('cct') or args.backbone.startswith('vit')
+    args.work_with_tokens = args.backbone.startswith('cct') or args.backbone.startswith('vit') or args.backbone.startswith('transvpr')
     if args.backbone.startswith("resnet"):
         if args.pretrain in ['places', 'gldv2']:
             backbone = get_pretrained_model(args)
@@ -180,7 +224,37 @@ def get_backbone(args):
         
         args.features_dim = 768
         return backbone
-
+    elif args.backbone.startswith("transvpr"):
+        #TODO: transvpr requires [480,640] input images
+        if args.pretrain in ['msls', 'pitts30k']:
+            backbone = get_pretrained_model(args)
+        else:
+            logging.warn(f"TransVPR is only supported for evaluation with pretrained models on MSLS or Pitts30k")
+            return
+        if args.trunc_te:
+            logging.debug(f"Truncate TransVPR at transformers encoder {args.trunc_te}")
+            backbone.encoder.layer = backbone.encoder.layer[:args.trunc_te]
+        if args.freeze_te:
+            logging.debug(f"Freeze all the layers up to tranformer encoder {args.freeze_te+1}")
+            for p in backbone.parameters():
+                p.requires_grad = False
+            for name, child in backbone.encoder.layer.named_children():
+                if int(name) > args.freeze_te:
+                    for params in child.parameters():
+                        params.requires_grad = True
+        args.features_dim = 256
+        return backbone
+    elif args.backbone.startswith("selavpr"):
+        backbone = vit_large(patch_size=14,img_size=518,init_values=1,block_chunks=0) 
+        assert not (args.foundation_model_path is None and args.resume is None), "Please specify foundation model path."
+        if args.foundation_model_path:
+            model_dict = backbone.state_dict()
+            state_dict = torch.load(args.foundation_model_path)
+            model_dict.update(state_dict.items())
+            backbone.load_state_dict(model_dict)
+        args.features_dim = 1024
+        return backbone
+        
     backbone = torch.nn.Sequential(*layers)
     args.features_dim = get_output_channels_dim(backbone)  # Dinamically obtain number of channels in output
     return backbone

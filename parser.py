@@ -36,7 +36,7 @@ def parse_arguments():
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
                                  "resnet50conv4", "resnet50conv5", "resnet101conv4", "resnet101conv5",
-                                 "cct384", "vit"], help="_")
+                                 "cct384", "vit", "transvpr", "selavpr"], help="_")
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],
                         help="When (and if) to apply the l2 norm with shallow aggregation layers")
     parser.add_argument("--aggregation", type=str, default="netvlad", choices=["netvlad", "gem", "spoc", "mac", "rmac", "crn", "rrm",
@@ -45,20 +45,25 @@ def parse_arguments():
     parser.add_argument('--pca_dim', type=int, default=None, help="PCA dimension (number of principal components). If None, PCA is not used.")
     parser.add_argument('--fc_output_dim', type=int, default=None,
                         help="Output dimension of fully connected layer. If None, don't use a fully connected layer.")
-    parser.add_argument('--pretrain', type=str, default="imagenet", choices=['imagenet', 'gldv2', 'places'],
+    parser.add_argument('--pretrain', type=str, default="imagenet", choices=['imagenet', 'gldv2', 'places', 'msls', 'pitts30k'],
                         help="Select the pretrained weights for the starting network")
+    parser.add_argument("--rerank_num", type=int, default=100, help="_")
     parser.add_argument("--off_the_shelf", type=str, default="imagenet", choices=["imagenet", "radenovic_sfm", "radenovic_gldv1", "naver"],
                         help="Off-the-shelf networks from popular GitHub repos. Only with ResNet-50/101 + GeM + FC 2048")
     parser.add_argument("--trunc_te", type=int, default=None, choices=list(range(0, 14)))
     parser.add_argument("--freeze_te", type=int, default=None, choices=list(range(-1, 14)))
     # Initialization parameters
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--foundation_model_path", type=str, default=None,
+                        help="Path to load foundation model checkpoint.")
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to load checkpoint from, for resuming training or testing.")
     # Other parameters
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--num_workers", type=int, default=8, help="num_workers for all dataloaders")
-    parser.add_argument('--resize', type=int, default=[480, 640], nargs=2, help="Resizing shape for images (HxW).")
+    parser.add_argument('--resize', type=int, default=[224,224], nargs=2, help="Resizing shape for images (HxW).")
+    parser.add_argument('--dense_feature_map_size', type=int, default=[61,61,128], nargs=3, 
+                        help="size of dense feature map (a 61x61 grid 128-dim local features)")
     parser.add_argument('--test_method', type=str, default="hard_resize",
                         choices=["hard_resize", "single_query", "central_crop", "five_crops", "nearest_crop", "maj_voting"],
                         help="This includes pre/post-processing methods and prediction refinement")

@@ -1,0 +1,6 @@
+[submodule "model/SelaVPR"]
+	path = model/SelaVPR
+	url = https://github.com/Lu-Feng/SelaVPR.git
+[submodule "model/transvpr"]
+	path = model/transvpr
+	url = https://github.com/RuotongWANG/TransVPR-model-implementation.git
