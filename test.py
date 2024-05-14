@@ -15,7 +15,7 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
     This can be useful when testing with large descriptors (e.g. NetVLAD) on large datasets (e.g. San Francisco).
     Obviously it is slower than test(), and can't be used with PCA.
     """
-    
+    print("Using efficient RAM usage for testing")
     model = model.eval()
     if test_method == 'nearest_crop' or test_method == "maj_voting":
         distances = np.empty([eval_ds.queries_num * 5, eval_ds.database_num], dtype=np.float32)
@@ -145,20 +145,13 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
             all_features = np.empty((5 * eval_ds.queries_num + eval_ds.database_num, args.features_dim), dtype="float32")
         else:
             all_features = np.empty((len(eval_ds), args.features_dim), dtype="float32")
-        if (args.backbone == "selavpr"):
-            W, H, C = args.dense_feature_map_size
-            all_local_features = np.empty((len(eval_ds), W, H, C), dtype="float32")
 
         for inputs, indices in tqdm(database_dataloader, ncols=100):
-            local_features, features = model(inputs.to(args.device))
+            features = model(inputs.to(args.device))
             features = features.cpu().numpy()
-            # features = tuple(t.cpu() for t in features)
-            if (args.backbone == "selavpr"): local_features = local_features.cpu().numpy()
-            # if (args.backbone == "selavpr"): local_features = tuple(t.cpu() for t in local_features)
             if pca is not None:
                 features = pca.transform(features)
             all_features[indices.numpy(), :] = features
-            if (args.backbone == "selavpr"): all_local_features[indices.numpy(), :] = local_features
         
         logging.debug("Extracting queries features for evaluation/testing")
         queries_infer_batch_size = 1 if test_method == "single_query" else args.infer_batch_size
@@ -170,11 +163,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
             if test_method == "five_crops" or test_method == "nearest_crop" or test_method == 'maj_voting':
                 inputs = torch.cat(tuple(inputs))  # shape = 5*bs x 3 x 480 x 480
             features = model(inputs.to(args.device))
-            if (args.backbone == "selavpr"): local_features = model(inputs.to(args.device))
             if test_method == "five_crops":  # Compute mean along the 5 crops
                 features = torch.stack(torch.split(features, 5)).mean(1)
             features = features.cpu().numpy()
-            if (args.backbone == "selavpr"): local_features = local_features.cpu().numpy()
             
             if pca is not None:
                 features = pca.transform(features)
@@ -186,13 +177,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
                 all_features[indices, :] = features
             else:
                 all_features[indices.numpy(), :] = features
-                if (args.backbone == "selavpr"): all_local_features[indices.numpy(), :] = local_features
     
     queries_features = all_features[eval_ds.database_num:]
     database_features = all_features[:eval_ds.database_num]
-    if (args.backbone == "selavpr"):
-         queries_local_features = all_local_features[eval_ds.database_num:]
-         database_local_features = all_local_features[:eval_ds.database_num]
     
     faiss_index = faiss.IndexFlatL2(args.features_dim)
     faiss_index.add(database_features)
@@ -251,36 +238,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
     # Divide by the number of queries*100, so the recalls are in percentages
     recalls = recalls / eval_ds.queries_num * 100
     recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    logging.info(f"First ranking recalls: {recalls_str}")
-    if (args.backbone == "selavpr"):
-        predictions = rerank(predictions,queries_local_features,database_local_features)
-
-        #### For each query, check if the predictions are correct
-        positives_per_query = eval_ds.get_positives()
-        # args.recall_values by default is [1, 5, 10, 20]
-        recalls = np.zeros(len(args.recall_values))
-        for query_index, pred in enumerate(predictions):
-            for i, n in enumerate(args.recall_values):
-                if np.any(np.in1d(pred[:n], positives_per_query[query_index])):
-                    recalls[i:] += 1
-                    break
-        # Divide by the number of queries*100, so the recalls are in percentages
-        recalls = recalls / eval_ds.queries_num * 100
-        recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-        return recalls, recalls_str
     return recalls, recalls_str
-
-def rerank(predictions,queries_local_features,database_local_features):
-    pred2 = []
-    print("reranking...")
-    for query_index, pred in enumerate(tqdm(predictions)):
-        query_local_features = queries_local_features[query_index]
-        candidates_local_features = database_local_features[pred]
-        query_local_features = torch.Tensor(query_local_features).cuda()
-        candidates_local_features = torch.Tensor(candidates_local_features).cuda()
-        rerank_index = local_sim(query_local_features, candidates_local_features).cpu().numpy().argsort()[::-1]
-        pred2.append(predictions[query_index][rerank_index])     
-    return np.array(pred2)
 
 def top_n_voting(topn, predictions, distances, maj_weight):
     if topn == 'top1':

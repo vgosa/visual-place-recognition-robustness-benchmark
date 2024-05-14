@@ -29,6 +29,7 @@ from os.path import join
 from datetime import datetime
 from torch.utils.model_zoo import load_url
 from google_drive_downloader import GoogleDriveDownloader as gdd
+from corruption import corruptions
 
 import test
 import util
@@ -59,7 +60,6 @@ logging.info(f"The outputs are being saved in {args.save_dir}")
 
 ######################################### MODEL #########################################
 if args.backbone.startswith("selavpr"):
-    print("using SelaVPRNet")
     model = network.SelaVPRNet(args)
 else:
     model = network.GeoLocalizationNet(args)
@@ -118,13 +118,55 @@ else:
     full_features_dim = args.features_dim
     args.features_dim = args.pca_dim
     pca = util.compute_pca(args, model, args.pca_dataset_folder, full_features_dim)
+    
+    
+########################################## TEST on TEST SET #########################################
+def run_test(args, model, test_ds, pca):
+    recalls, recalls_str = test.test(args, test_ds, model, args.test_method, pca)
+    logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
-######################################### DATASETS #########################################
-test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "test")
-logging.info(f"Test set: {test_ds}")
+    logging.info(f"Finished in {str(datetime.now() - start_time)[:-7]}")
 
-######################################### TEST on TEST SET #########################################
-recalls, recalls_str = test.test(args, test_ds, model, args.test_method, pca)
-logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
-logging.info(f"Finished in {str(datetime.now() - start_time)[:-7]}")
+######################################### DATASETS AND TEST #########################################
+if args.corruption is None:
+    test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "test")
+    logging.info(f"Test set: {test_ds}")
+    run_test(args, model, test_ds, pca)
+else:
+    assert args.corruption == "all" or args.corruption in corruptions, f"Choose a valid corruption: {corruptions}"
+    if args.corruption == "all":
+        for corruption in corruptions:
+            print(f"Testing corruption=[{corruption}] with all severity levels")
+            for severity in range(1, 6):
+                print(f"Testing corruption=[{corruption}] with severity={severity}")
+                test_ds = datasets_ws.CorruptedDataset(args=args,
+                                                       corruption=corruption,
+                                                       datasets_folder=args.datasets_folder,
+                                                       dataset_name=args.dataset_name,
+                                                       split="test",
+                                                       severity=severity, 
+                                                       saveImages=args.save_images)
+                run_test(args, model, test_ds, pca)
+    elif args.severity:
+        print(f"Testing corruption=[{args.corruption}] with severity={args.severity}")
+        test_ds = datasets_ws.CorruptedDataset(args=args,
+                                               corruption=args.corruption,
+                                               datasets_folder=args.datasets_folder,
+                                               dataset_name=args.dataset_name,
+                                               split="test",
+                                               severity=args.severity,
+                                               saveImages=args.save_images)
+        run_test(args, model, test_ds, pca)
+    else:
+        print(f"Testing corruption=[{args.corruption}] with all severity levels")
+        for severity in range(1, 6):
+            print(f"Testing corruption=[{args.corruption}] with severity={severity}")
+            test_ds = datasets_ws.CorruptedDataset(args=args,
+                                                   corruption=args.corruption,
+                                                   datasets_folder=args.datasets_folder,
+                                                   dataset_name=args.dataset_name,
+                                                   split="test",
+                                                   severity=severity,
+                                                   saveImages=args.save_images)
+            run_test(args, model, test_ds, pca)

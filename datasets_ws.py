@@ -1,4 +1,3 @@
-
 import os
 import torch
 import faiss
@@ -13,6 +12,8 @@ import torchvision.transforms as T
 from torch.utils.data.dataset import Subset
 from sklearn.neighbors import NearestNeighbors
 from torch.utils.data.dataloader import DataLoader
+from numpy.random import RandomState
+from corruption import corrupt
 
 
 base_transform = T.Compose([
@@ -61,7 +62,7 @@ class PCADataset(data.Dataset):
     
     def __len__(self):
         return len(self.images_paths)
-
+    
 
 class BaseDataset(data.Dataset):
     """Dataset with images from database and queries, used for inference (testing and building cache).
@@ -142,6 +143,90 @@ class BaseDataset(data.Dataset):
     
     def get_positives(self):
         return self.soft_positives_per_query
+    
+class CorruptedDataset(data.Dataset):
+    def __init__(self, args, corruption, datasets_folder="dataset", dataset_name="pitts30k", split="train", severity=1, saveImages=False):
+        super().__init__()
+        self.saveImages = saveImages
+        self.corruption = corruption
+        self.severity = severity
+        self.args = args
+        self.dataset_name = dataset_name
+        self.dataset_folder = join(datasets_folder, dataset_name, "images", split)
+        if not os.path.exists(self.dataset_folder):
+            raise FileNotFoundError(f"Folder {self.dataset_folder} does not exist")
+        
+        self.resize = args.resize
+        self.test_method = args.test_method
+        
+        #### Read paths and UTM coordinates for all images.
+        database_folder = join(self.dataset_folder, "database")
+        queries_folder = join(self.dataset_folder, corruption)
+        if not os.path.exists(database_folder):
+            raise FileNotFoundError(f"Folder {database_folder} does not exist")
+        if not os.path.exists(queries_folder):
+            raise FileNotFoundError(f"Folder {queries_folder} does not exist")
+        self.database_paths = sorted(glob(join(database_folder, "**", "*.jpg"), recursive=True))
+        self.queries_paths = sorted(glob(join(queries_folder, f"*{self.severity}.jpg"),  recursive=True))
+        # The format must be path/to/file/@utm_easting@utm_northing@...@.jpg
+        self.database_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.database_paths]).astype(float)
+        self.queries_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.queries_paths]).astype(float)
+        
+        # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
+        knn = NearestNeighbors(n_jobs=-1)
+        knn.fit(self.database_utms)
+        self.soft_positives_per_query = knn.radius_neighbors(self.queries_utms,
+                                                             radius=args.val_positive_dist_threshold,
+                                                             return_distance=False)
+        
+        self.images_paths = list(self.database_paths) + list(self.queries_paths)
+        
+        self.database_num = len(self.database_paths)
+        self.queries_num = len(self.queries_paths)
+        
+    def __getitem__(self, index):
+        # if index > self.database_num:
+        #     corrupted_path = self.images_paths[index]
+            
+        #     assert os.path.exists(corrupted_path) or self.saveImages == True , f"Corrupted image {corrupted_path} does not exist. Please set saveImages=True to save the corrupted images."
+            
+        #     if self.saveImages and (not os.path.exists(corrupted_path)):
+        #         # Open the array and convert it to a NumPy array
+        #         imageArray = np.array(Image.open(os.path.join(self.images_paths[index])))
+        #         # Initialise the RandomState
+        #         hashString = self.images_paths[index] + self.corruption + str(self.severity)
+        #         randState = RandomState(bytearray(hashString.encode()))
+        #         # Corrupt the image
+        #         corruptedArray = corrupt(imageArray, randState, severity=self.severity, corruption_name=self.corruption)
+        #         # Convert image back to PIL object
+        #         corruptedImage = Image.fromarray(corruptedArray)
+
+        #         # Save image for next run
+        #         corrupted_name = os.path.join(corrupted_path)
+        #         corruptedImage.save(corrupted_name)
+        #         return self.transform_img(index, corrupted_path)
+        # else:
+        return self.transform_img(index, self.images_paths[index])
+
+    def transform_img(self, index, img_path):
+        img = base_transform(path_to_pil_img(img_path))
+        # With database images self.test_method should always be "hard_resize"
+        if self.test_method == "hard_resize":
+            # self.test_method=="hard_resize" is the default, resizes all images to the same size.
+            img = T.functional.resize(img, self.resize)
+        else:
+            img = self._test_query_transform(img)
+        return img, index
+
+    def __len__(self):
+        return len(self.images_paths)
+    
+    def __repr__(self):
+        return f"< {self.__class__.__name__}, {self.dataset_name} - #database: {self.database_num}; #queries: {self.queries_num} >"
+    
+    def get_positives(self):
+        return self.soft_positives_per_query
+
 
 
 class TripletsDataset(BaseDataset):
