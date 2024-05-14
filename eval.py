@@ -51,15 +51,21 @@ OFF_THE_SHELF_NAVER = {
 ######################################### SETUP #########################################
 args = parser.parse_arguments()
 start_time = datetime.now()
-args.save_dir = join("test", args.save_dir, start_time.strftime('%Y-%m-%d_%H-%M-%S'))
+args.save_dir = join("test", args.save_dir, "{backbone}_{dataset_name}".format(backbone = args.backbone, dataset_name = args.dataset_name), start_time.strftime('%Y-%m-%d_%H-%M-%S'))
 commons.setup_logging(args.save_dir)
 commons.make_deterministic(args.seed)
 logging.info(f"Arguments: {args}")
 logging.info(f"The outputs are being saved in {args.save_dir}")
 
 ######################################### MODEL #########################################
-model = network.GeoLocalizationNet(args)
+if args.backbone.startswith("selavpr"):
+    print("using SelaVPRNet")
+    model = network.SelaVPRNet(args)
+else:
+    model = network.GeoLocalizationNet(args)
+
 model = model.to(args.device)
+
 if args.backbone.startswith("selavpr"):
     # model = torch.nn.DataParallel(model)
     if args.resume != None:

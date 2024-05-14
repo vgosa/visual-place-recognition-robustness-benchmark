@@ -55,8 +55,6 @@ class GeoLocalizationNet(nn.Module):
         self.backbone = get_backbone(args)
         self.arch_name = args.backbone
         self.aggregation = get_aggregation(args)
-        if args.backbone.startswith("selavpr"): # Add local adaptation layer
-            self.LocalAdapt = LocalAdapt()
 
         if args.aggregation in ["gem", "spoc", "mac", "rmac"]:
             if args.l2 == "before_pool":
@@ -74,22 +72,28 @@ class GeoLocalizationNet(nn.Module):
             args.features_dim = args.fc_output_dim
 
     def forward(self, x):
-        if self.arch_name.startswith("selavpr"):
-            x = self.backbone(x)
-            patch_feature = x["x_norm_patchtokens"].view(-1,16,16,1024)
-
-            x1 = patch_feature.permute(0, 3, 1, 2)
-            x1 = self.aggregation(x1) 
-            global_feature = torch.nn.functional.normalize(x1, p=2, dim=-1)
-
-            x0 = patch_feature.permute(0, 3, 1, 2)
-            x0 = self.LocalAdapt(x0)
-            x0 = x0.permute(0, 2, 3, 1)
-            local_feature = torch.nn.functional.normalize(x0, p=2, dim=-1)
-            return local_feature, global_feature
         x = self.backbone(x)
         x = self.aggregation(x)
         return x
+
+class SelaVPRNet(GeoLocalizationNet):
+    def __init__(self, args):
+        super().__init__(args)
+        self.LocalAdapt = LocalAdapt()
+    
+    def forward(self, x):
+        x = self.backbone(x)
+        patch_feature = x["x_norm_patchtokens"].view(-1,16,16,1024)
+
+        x1 = patch_feature.permute(0, 3, 1, 2)
+        x1 = self.aggregation(x1) 
+        global_feature = torch.nn.functional.normalize(x1, p=2, dim=-1)
+
+        x0 = patch_feature.permute(0, 3, 1, 2)
+        x0 = self.LocalAdapt(x0)
+        x0 = x0.permute(0, 2, 3, 1)
+        local_feature = torch.nn.functional.normalize(x0, p=2, dim=-1)
+        return local_feature, global_feature
 
 
 def get_aggregation(args):
@@ -115,10 +119,25 @@ def get_aggregation(args):
 
 
 def get_pretrained_model(args):
-    if args.pretrain == 'places':  num_classes = 365
-    elif args.pretrain == 'gldv2':  num_classes = 512
-    elif args.pretrain == 'msls':  num_classes = 256
-    
+    """
+    Returns a pretrained model based on the provided arguments.
+
+    Args:
+        args: An object containing the arguments for selecting the pretrained model.
+
+    Returns:
+        model: The pretrained model.
+
+    Raises:
+        FileNotFoundError: If the file path to the pretrained weights does not exist.
+    """
+    if args.pretrain == 'places':
+        num_classes = 365
+    elif args.pretrain == 'gldv2':
+        num_classes = 512
+    elif args.pretrain == 'msls':
+        num_classes = 256
+
     if args.backbone.startswith("resnet18"):
         model = torchvision.models.resnet18(num_classes=num_classes)
     elif args.backbone.startswith("resnet50"):
@@ -127,8 +146,6 @@ def get_pretrained_model(args):
         model = torchvision.models.resnet101(num_classes=num_classes)
     elif args.backbone.startswith("vgg16"):
         model = torchvision.models.vgg16(num_classes=num_classes)
-    elif args.backbone.startswith("transvpr"):
-        model = Extractor_base()
     
     if args.backbone.startswith('resnet'):
         model_name = args.backbone.split('conv')[0] + "_" + args.pretrain
@@ -140,17 +157,24 @@ def get_pretrained_model(args):
         gdd.download_file_from_google_drive(file_id=PRETRAINED_MODELS[model_name],
                                             dest_path=file_path)
     print(f'File Path to weights: {file_path}')
-    if args.backbone.startswith("transvpr"):
-        model_dict = model.state_dict()
-        state_dict = torch.load(file_path)
-        model_dict.update(state_dict.items())
-        model.load_state_dict(model_dict)
     state_dict = torch.load(file_path, map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
     return model
 
 
 def get_backbone(args):
+    """
+    Returns the backbone model based on the provided arguments.
+
+    Args:
+        args: An object containing the arguments for selecting the backbone model.
+
+    Returns:
+        The backbone model based on the provided arguments.
+
+    Raises:
+        AssertionError: If the image size for ViT is not 224 or 384.
+    """
     # The aggregation layer works differently based on the type of architecture
     args.work_with_tokens = args.backbone.startswith('cct') or args.backbone.startswith('vit') or args.backbone.startswith('transvpr')
     if args.backbone.startswith("resnet"):
@@ -174,6 +198,7 @@ def get_backbone(args):
         elif args.backbone.endswith("conv5"):
             logging.debug(f"Train only conv4_x and conv5_x of the resnet{args.backbone.split('conv')[0]}, freeze the previous ones")
             layers = list(backbone.children())[:-2]
+            
     elif args.backbone == "vgg16":
         if args.pretrain in ['places', 'gldv2']:
             backbone = get_pretrained_model(args)
@@ -183,12 +208,14 @@ def get_backbone(args):
         for l in layers[:-5]:
             for p in l.parameters(): p.requires_grad = False
         logging.debug("Train last layers of the vgg16, freeze the previous ones")
+        
     elif args.backbone == "alexnet":
         backbone = torchvision.models.alexnet(pretrained=True)
         layers = list(backbone.features.children())[:-2]
         for l in layers[:5]:
             for p in l.parameters(): p.requires_grad = False
         logging.debug("Train last layers of the alexnet, freeze the previous ones")
+        
     elif args.backbone.startswith("cct"):
         if args.backbone.startswith("cct384"):
             backbone = cct_14_7x2_384(pretrained=True, progress=True, aggregation=args.aggregation)
@@ -196,7 +223,7 @@ def get_backbone(args):
             logging.debug(f"Truncate CCT at transformers encoder {args.trunc_te}")
             backbone.classifier.blocks = torch.nn.ModuleList(backbone.classifier.blocks[:args.trunc_te].children())
         if args.freeze_te:
-            logging.debug(f"Freeze all the layers up to tranformer encoder {args.freeze_te}")
+            logging.debug(f"Freeze all the layers up to transformer encoder {args.freeze_te}")
             for p in backbone.parameters():
                 p.requires_grad = False
             for name, child in backbone.classifier.blocks.named_children():
@@ -205,13 +232,13 @@ def get_backbone(args):
                         params.requires_grad = True
         args.features_dim = 384
         return backbone
+    
     elif args.backbone.startswith("vit"):
         assert args.resize[0] in [224, 384], f'Image size for ViT must be either 224 or 384, but it\'s {args.resize[0]}'
         if args.resize[0] == 224:
             backbone = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
         elif args.resize[0] == 384:
             backbone = ViTModel.from_pretrained('google/vit-base-patch16-384')
-
         if args.trunc_te:
             logging.debug(f"Truncate ViT at transformers encoder {args.trunc_te}")
             backbone.encoder.layer = backbone.encoder.layer[:args.trunc_te]
@@ -224,16 +251,12 @@ def get_backbone(args):
                     for params in child.parameters():
                         params.requires_grad = True
         backbone = VitWrapper(backbone, args.aggregation)
-        
         args.features_dim = 768
         return backbone
+    
     elif args.backbone.startswith("transvpr"):
         #TODO: transvpr requires [480,640] input images
-        if args.pretrain in ['msls', 'pitts30k']:
-            backbone = get_pretrained_model(args)
-        else:
-            logging.warn(f"TransVPR is only supported for evaluation with pretrained models on MSLS or Pitts30k")
-            return
+        backbone = Extractor_base()
         if args.trunc_te:
             logging.debug(f"Truncate TransVPR at transformers encoder {args.trunc_te}")
             backbone.encoder.layer = backbone.encoder.layer[:args.trunc_te]
@@ -245,9 +268,8 @@ def get_backbone(args):
                 if int(name) > args.freeze_te:
                     for params in child.parameters():
                         params.requires_grad = True
-        backbone = Extractor_base()
-        # args.features_dim = 256
         return backbone
+    
     elif args.backbone.startswith("selavpr"):
         backbone = vit_large(patch_size=14,img_size=518,init_values=1,block_chunks=0) 
         assert not (args.foundation_model_path is None and args.resume is None), "Please specify foundation model path."
