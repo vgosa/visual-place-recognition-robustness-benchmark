@@ -1,4 +1,6 @@
 
+from datetime import datetime
+import os
 import re
 import torch
 import shutil
@@ -8,6 +10,9 @@ import numpy as np
 from collections import OrderedDict
 from os.path import join
 from sklearn.decomposition import PCA
+from dataclasses import dataclass
+from dataclass_csv import DataclassWriter
+from csv_class import Result
 
 import datasets_ws
 
@@ -74,3 +79,36 @@ def compute_pca(args, model, pca_dataset_folder, full_features_dim):
     pca = PCA(args.pca_dim)
     pca.fit(pca_features)
     return pca
+
+def convert_recalls_to_csv(recalls, args, severity=None):
+    print("Saving results to csv")
+    print("WARNING: This method only supports the default recall rates values. Any overwriting will result in a erroneous csv save.")
+    result = Result(
+        timestamp= datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        backbone=args.backbone,
+        aggregation=args.aggregation,
+        checkpoint_path=args.resume,
+        pca=args.pca_dim is not None,
+        pca_dim=args.pca_dim,
+        dataset=args.dataset_name,
+        corruption=args.corruption,
+        severity= severity,
+        recall_1=recalls[0],
+        recall_5=recalls[1],
+        recall_10=recalls[2],
+        recall_20=recalls[3]
+    )
+    return result
+
+def save_csv_to_file(args, results):
+    # Save the results locally
+    with open(os.path.join(args.save_dir, "results.csv"), 'a') as f:
+        writer = DataclassWriter(f, results, Result)
+        writer.write()
+    # Save the results to a centralized csv file
+    with open("results.csv", 'a') as f:
+        writer = DataclassWriter(f, results, Result)
+        if os.stat("results.csv").st_size == 0:
+            writer.write()
+        else:
+            writer.write(skip_header=True)

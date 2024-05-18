@@ -8,9 +8,10 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from model.SelaVPR.local_matching import local_sim
 from model.SelaVPR.test import test as test_selavpr
+from util import convert_recalls_to_csv
 
 
-def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
+def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize", severity=None):
     """This function gives the same output as test(), but uses much less RAM.
     This can be useful when testing with large descriptors (e.g. NetVLAD) on large datasets (e.g. San Francisco).
     Obviously it is slower than test(), and can't be used with PCA.
@@ -117,20 +118,21 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize"):
     
     recalls = recalls / eval_ds.queries_num * 100
     recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    return recalls, recalls_str
+    result = convert_recalls_to_csv(recalls, args, severity=severity)
+    return recalls, recalls_str, result
 
 
-def test(args, eval_ds, model, test_method="hard_resize", pca=None):
+def test(args, eval_ds, model, test_method="hard_resize", pca=None, severity=None):
     """Compute features of the given dataset and compute the recalls."""
     
     assert test_method in ["hard_resize", "single_query", "central_crop", "five_crops",
                            "nearest_crop", "maj_voting"], f"test_method can't be {test_method}"
     
     if args.backbone == "selavpr":
-        return test_selavpr(args, eval_ds, model, test_method, pca)
+        return test_selavpr(args, eval_ds, model, test_method, pca, severity)
     
     if args.efficient_ram_testing:
-        return test_efficient_ram_usage(args, eval_ds, model, test_method)
+        return test_efficient_ram_usage(args, eval_ds, model, test_method, severity)
     
     model = model.eval()
     with torch.no_grad():
@@ -238,7 +240,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None):
     # Divide by the number of queries*100, so the recalls are in percentages
     recalls = recalls / eval_ds.queries_num * 100
     recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    return recalls, recalls_str
+    result = convert_recalls_to_csv(recalls, args, severity=severity)
+    
+    return recalls, recalls_str, result
 
 def top_n_voting(topn, predictions, distances, maj_weight):
     if topn == 'top1':

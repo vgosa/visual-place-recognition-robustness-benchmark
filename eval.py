@@ -36,6 +36,7 @@ import util
 import commons
 import datasets_ws
 from model import network
+from util import save_csv_to_file
 
 OFF_THE_SHELF_RADENOVIC = {
     'resnet50conv5_sfm'    : 'http://cmp.felk.cvut.cz/cnnimageretrieval/data/networks/retrieval-SfM-120k/rSfM120k-tl-resnet50-gem-w-97bf910.pth',
@@ -121,21 +122,24 @@ else:
     
     
 ########################################## TEST on TEST SET #########################################
-def run_test(args, model, test_ds, pca):
-    recalls, recalls_str = test.test(args, test_ds, model, args.test_method, pca)
+def run_test(args, model, test_ds, pca, severity=None):
+    recalls, recalls_str, result = test.test(args, test_ds, model, args.test_method, pca, severity)
     logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
     logging.info(f"Finished in {str(datetime.now() - start_time)[:-7]}")
+    return result
 
 
 ######################################### DATASETS AND TEST #########################################
 if args.corruption is None:
     test_ds = datasets_ws.BaseDataset(args, args.datasets_folder, args.dataset_name, "test")
     logging.info(f"Test set: {test_ds}")
-    run_test(args, model, test_ds, pca)
+    result = run_test(args, model, test_ds, pca)
+    save_csv_to_file(args, [result])
 else:
     assert args.corruption == "all" or args.corruption in corruptions, f"Choose a valid corruption: {corruptions}"
     if args.corruption == "all":
+        results = []
         for corruption in corruptions:
             print(f"Testing corruption=[{corruption}] with all severity levels")
             for severity in range(1, 6):
@@ -145,9 +149,9 @@ else:
                                                        datasets_folder=args.datasets_folder,
                                                        dataset_name=args.dataset_name,
                                                        split="test",
-                                                       severity=severity, 
-                                                       saveImages=args.save_images)
-                run_test(args, model, test_ds, pca)
+                                                       severity=severity)
+                results.append(run_test(args, model, test_ds, pca, severity))
+        save_csv_to_file(args, results)
     elif args.severity:
         print(f"Testing corruption=[{args.corruption}] with severity={args.severity}")
         test_ds = datasets_ws.CorruptedDataset(args=args,
@@ -155,11 +159,12 @@ else:
                                                datasets_folder=args.datasets_folder,
                                                dataset_name=args.dataset_name,
                                                split="test",
-                                               severity=args.severity,
-                                               saveImages=args.save_images)
-        run_test(args, model, test_ds, pca)
+                                               severity=args.severity)
+        result = run_test(args, model, test_ds, pca, args.severity)
+        save_csv_to_file(args, [result])
     else:
         print(f"Testing corruption=[{args.corruption}] with all severity levels")
+        results = []
         for severity in range(1, 6):
             print(f"Testing corruption=[{args.corruption}] with severity={severity}")
             test_ds = datasets_ws.CorruptedDataset(args=args,
@@ -167,6 +172,6 @@ else:
                                                    datasets_folder=args.datasets_folder,
                                                    dataset_name=args.dataset_name,
                                                    split="test",
-                                                   severity=severity,
-                                                   saveImages=args.save_images)
-            run_test(args, model, test_ds, pca)
+                                                   severity=severity)
+            results.append(run_test(args, model, test_ds, pca, severity))
+        save_csv_to_file(args, results)
