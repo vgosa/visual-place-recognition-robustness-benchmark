@@ -92,7 +92,6 @@ def parse_arguments():
                         help="Folder name of the current run (saved in ./logs/)")
     parser.add_argument('--corruption', type=str, default=None, help='Corruption to evaluate (in string format or as integer in [0,18])')
     parser.add_argument('--severity', type=int, default=None, help='Severity of corruption')
-    parser.add_argument('--save_images', type=bool, default=False, help='Save a copy of the corrupted images in the dataset folder in the format @@@@_corruption_severity.jpg')
     args = parser.parse_args()
     
     if args.datasets_folder is None:

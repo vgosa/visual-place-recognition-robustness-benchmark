@@ -145,9 +145,8 @@ class BaseDataset(data.Dataset):
         return self.soft_positives_per_query
     
 class CorruptedDataset(data.Dataset):
-    def __init__(self, args, corruption, datasets_folder="dataset", dataset_name="pitts30k", split="train", severity=1, saveImages=False):
+    def __init__(self, args, corruption, datasets_folder="dataset", dataset_name="pitts30k", split="train", severity=1):
         super().__init__()
-        self.saveImages = saveImages
         self.corruption = corruption
         self.severity = severity
         self.args = args
@@ -185,27 +184,6 @@ class CorruptedDataset(data.Dataset):
         self.queries_num = len(self.queries_paths)
         
     def __getitem__(self, index):
-        # if index > self.database_num:
-        #     corrupted_path = self.images_paths[index]
-            
-        #     assert os.path.exists(corrupted_path) or self.saveImages == True , f"Corrupted image {corrupted_path} does not exist. Please set saveImages=True to save the corrupted images."
-            
-        #     if self.saveImages and (not os.path.exists(corrupted_path)):
-        #         # Open the array and convert it to a NumPy array
-        #         imageArray = np.array(Image.open(os.path.join(self.images_paths[index])))
-        #         # Initialise the RandomState
-        #         hashString = self.images_paths[index] + self.corruption + str(self.severity)
-        #         randState = RandomState(bytearray(hashString.encode()))
-        #         # Corrupt the image
-        #         corruptedArray = corrupt(imageArray, randState, severity=self.severity, corruption_name=self.corruption)
-        #         # Convert image back to PIL object
-        #         corruptedImage = Image.fromarray(corruptedArray)
-
-        #         # Save image for next run
-        #         corrupted_name = os.path.join(corrupted_path)
-        #         corruptedImage.save(corrupted_name)
-        #         return self.transform_img(index, corrupted_path)
-        # else:
         return self.transform_img(index, self.images_paths[index])
 
     def transform_img(self, index, img_path):
