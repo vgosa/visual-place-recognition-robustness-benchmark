@@ -129,7 +129,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, severity=Non
                            "nearest_crop", "maj_voting"], f"test_method can't be {test_method}"
     
     if args.backbone == "selavpr":
-        return test_selavpr(args, eval_ds, model, test_method, pca, severity)
+        recalls_selavpr, recalls_str_selavpr = test_selavpr(args, eval_ds, model, test_method, pca, severity)
+        result = convert_recalls_to_csv(recalls, args, severity=severity)
+        return recalls_selavpr, recalls_str_selavpr, result
     
     if args.efficient_ram_testing:
         return test_efficient_ram_usage(args, eval_ds, model, test_method, severity)

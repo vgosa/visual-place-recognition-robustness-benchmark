@@ -123,10 +123,12 @@ else:
     
 ########################################## TEST on TEST SET #########################################
 def run_test(args, model, test_ds, pca, severity=None):
+    start_time_test = datetime.now()
     recalls, recalls_str, result = test.test(args, test_ds, model, args.test_method, pca, severity)
     logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
-    logging.info(f"Finished in {str(datetime.now() - start_time)[:-7]}")
+    logging.info(f"Finished in {str(datetime.now() - start_time_test)[:-7]}")
+    logging.info(f"Elapsed time:{str(datetime.now() - start_time)[:-7]}")
     return result
 
 
@@ -141,6 +143,16 @@ else:
     if args.corruption == "all":
         results = []
         for corruption in corruptions:
+            if corruption in ['rainy', 'day_to_night']:
+                print(f"Testing corruption=[{corruption}]")
+                test_ds = datasets_ws.CorruptedDataset(args=args,
+                                                       corruption=corruption,
+                                                       datasets_folder=args.datasets_folder,
+                                                       dataset_name=args.dataset_name,
+                                                       split="test",
+                                                       severity=1)
+                results.append(run_test(args, model, test_ds, pca, 1))
+                continue
             print(f"Testing corruption=[{corruption}] with all severity levels")
             for severity in range(1, 6):
                 print(f"Testing corruption=[{corruption}] with severity={severity}")
@@ -153,6 +165,9 @@ else:
                 results.append(run_test(args, model, test_ds, pca, severity))
         save_csv_to_file(args, results)
     elif args.severity:
+        if args.corruption in ['rainy', 'day_to_night']:
+            print(f"Cannot test severity for corruption=[{args.corruption}]")
+            sys.exit()
         print(f"Testing corruption=[{args.corruption}] with severity={args.severity}")
         test_ds = datasets_ws.CorruptedDataset(args=args,
                                                corruption=args.corruption,
@@ -163,8 +178,19 @@ else:
         result = run_test(args, model, test_ds, pca, args.severity)
         save_csv_to_file(args, [result])
     else:
-        print(f"Testing corruption=[{args.corruption}] with all severity levels")
         results = []
+        if args.corruption in ['rainy', 'day_to_night']:
+            print(f"Testing corruption=[{args.corruption}]")
+            test_ds = datasets_ws.CorruptedDataset(args=args,
+                                                    corruption=args.corruption,
+                                                    datasets_folder=args.datasets_folder,
+                                                    dataset_name=args.dataset_name,
+                                                    split="test",
+                                                    severity=1)
+            results.append(run_test(args, model, test_ds, pca, 1))
+            save_csv_to_file(args, results)
+            sys.exit()
+        print(f"Testing corruption=[{args.corruption}] with all severity levels")
         for severity in range(1, 6):
             print(f"Testing corruption=[{args.corruption}] with severity={severity}")
             test_ds = datasets_ws.CorruptedDataset(args=args,

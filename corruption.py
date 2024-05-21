@@ -323,31 +323,44 @@ def crop(x, severity, randState):
     wstart = int(randState.uniform(0, zw - w))
     return zoomed[hstart:hstart + h, wstart:wstart + w]
 
+def rainy():
+    pass
 
+def day_to_night():
+    pass
 # /////////////// End Corruptions ///////////////
 
 
 # /////////////// Corrupt function //////////////
 
+# corruption_tuple = (
+#     shot_noise,
+#     defocus_blur,
+#     motion_blur,
+#     zoom_blur,
+#     snow,
+#     frost,
+#     fog,
+#     brightness,
+#     elastic_transform,
+#     jpeg_compression,
+#     rotate,
+#     crop,
+# )
+
 corruption_tuple = (
-    shot_noise,
     defocus_blur,
     motion_blur,
     zoom_blur,
-    snow,
-    frost,
-    fog,
-    brightness,
     elastic_transform,
     jpeg_compression,
-    rotate,
-    crop,
+    rainy,
+    day_to_night,
 )
 
 corruption_dict = {corr_func.__name__: corr_func for corr_func in corruption_tuple}
 
 corruptions = [corr_func.__name__ for corr_func in corruption_tuple]
-
 
 def corrupt(x, random, severity=1, corruption_name=None, corruption_number=-1):
     """

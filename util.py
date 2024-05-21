@@ -81,8 +81,6 @@ def compute_pca(args, model, pca_dataset_folder, full_features_dim):
     return pca
 
 def convert_recalls_to_csv(recalls, args, severity=None):
-    print("Saving results to csv")
-    print("WARNING: This method only supports the default recall rates values. Any overwriting will result in a erroneous csv save.")
     result = Result(
         timestamp= datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         backbone=args.backbone,
@@ -101,6 +99,9 @@ def convert_recalls_to_csv(recalls, args, severity=None):
     return result
 
 def save_csv_to_file(args, results):
+    print(f"Saving this test's results to {os.path.join(args.save_dir, 'results.csv')}.")
+    print("Appended all results to the general results.csv file in the current directory.")
+    print("WARNING: This method only supports the default recall rates values. Any overwriting will result in a erroneous csv save.")
     # Save the results locally
     with open(os.path.join(args.save_dir, "results.csv"), 'a') as f:
         writer = DataclassWriter(f, results, Result)
