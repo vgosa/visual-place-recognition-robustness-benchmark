@@ -11,7 +11,7 @@ from model.SelaVPR.test import test as test_selavpr
 from util import convert_recalls_to_csv
 
 
-def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize", severity=None):
+def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize", corruption=None, severity=None):
     """This function gives the same output as test(), but uses much less RAM.
     This can be useful when testing with large descriptors (e.g. NetVLAD) on large datasets (e.g. San Francisco).
     Obviously it is slower than test(), and can't be used with PCA.
@@ -118,11 +118,11 @@ def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize", se
     
     recalls = recalls / eval_ds.queries_num * 100
     recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    result = convert_recalls_to_csv(recalls, args, severity=severity)
+    result = convert_recalls_to_csv(recalls, args, corruption=corruption, severity=severity)
     return recalls, recalls_str, result
 
 
-def test(args, eval_ds, model, test_method="hard_resize", pca=None, severity=None):
+def test(args, eval_ds, model, test_method="hard_resize", pca=None, corruption=None, severity=None):
     """Compute features of the given dataset and compute the recalls."""
     
     assert test_method in ["hard_resize", "single_query", "central_crop", "five_crops",
@@ -130,11 +130,11 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, severity=Non
     
     if args.backbone == "selavpr":
         recalls_selavpr, recalls_str_selavpr = test_selavpr(args, eval_ds, model, test_method, pca, severity)
-        result = convert_recalls_to_csv(recalls, args, severity=severity)
+        result = convert_recalls_to_csv(recalls_selavpr, args, corruption=corruption, severity=severity)
         return recalls_selavpr, recalls_str_selavpr, result
     
     if args.efficient_ram_testing:
-        return test_efficient_ram_usage(args, eval_ds, model, test_method, severity)
+        return test_efficient_ram_usage(args, eval_ds, model, test_method, corruption, severity)
     
     model = model.eval()
     with torch.no_grad():
@@ -242,7 +242,7 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, severity=Non
     # Divide by the number of queries*100, so the recalls are in percentages
     recalls = recalls / eval_ds.queries_num * 100
     recalls_str = ", ".join([f"R@{val}: {rec:.1f}" for val, rec in zip(args.recall_values, recalls)])
-    result = convert_recalls_to_csv(recalls, args, severity=severity)
+    result = convert_recalls_to_csv(recalls, args, corruption=corruption, severity=severity)
     
     return recalls, recalls_str, result
 

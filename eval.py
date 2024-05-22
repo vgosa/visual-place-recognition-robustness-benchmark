@@ -122,9 +122,9 @@ else:
     
     
 ########################################## TEST on TEST SET #########################################
-def run_test(args, model, test_ds, pca, severity=None):
+def run_test(args, model, test_ds, pca, corruption=None, severity=None):
     start_time_test = datetime.now()
-    recalls, recalls_str, result = test.test(args, test_ds, model, args.test_method, pca, severity)
+    recalls, recalls_str, result = test.test(args, test_ds, model, args.test_method, pca, corruption, severity)
     logging.info(f"Recalls on {test_ds}: {recalls_str}")
 
     logging.info(f"Finished in {str(datetime.now() - start_time_test)[:-7]}")
@@ -151,7 +151,7 @@ else:
                                                        dataset_name=args.dataset_name,
                                                        split="test",
                                                        severity=1)
-                results.append(run_test(args, model, test_ds, pca, 1))
+                results.append(run_test(args, model, test_ds, pca, corruption, 1))
                 continue
             print(f"Testing corruption=[{corruption}] with all severity levels")
             for severity in range(1, 6):
@@ -162,7 +162,7 @@ else:
                                                        dataset_name=args.dataset_name,
                                                        split="test",
                                                        severity=severity)
-                results.append(run_test(args, model, test_ds, pca, severity))
+                results.append(run_test(args, model, test_ds, pca, corruption, severity))
         save_csv_to_file(args, results)
     elif args.severity:
         if args.corruption in ['rainy', 'day_to_night']:
@@ -175,7 +175,7 @@ else:
                                                dataset_name=args.dataset_name,
                                                split="test",
                                                severity=args.severity)
-        result = run_test(args, model, test_ds, pca, args.severity)
+        result = run_test(args, model, test_ds, pca, args.corruption, args.severity)
         save_csv_to_file(args, [result])
     else:
         results = []
@@ -187,7 +187,7 @@ else:
                                                     dataset_name=args.dataset_name,
                                                     split="test",
                                                     severity=1)
-            results.append(run_test(args, model, test_ds, pca, 1))
+            results.append(run_test(args, model, test_ds, pca, args.corruption, 1))
             save_csv_to_file(args, results)
             sys.exit()
         print(f"Testing corruption=[{args.corruption}] with all severity levels")
@@ -199,5 +199,5 @@ else:
                                                    dataset_name=args.dataset_name,
                                                    split="test",
                                                    severity=severity)
-            results.append(run_test(args, model, test_ds, pca, severity))
+            results.append(run_test(args, model, test_ds, pca, args.corruption, severity))
         save_csv_to_file(args, results)

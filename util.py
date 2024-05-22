@@ -80,7 +80,7 @@ def compute_pca(args, model, pca_dataset_folder, full_features_dim):
     pca.fit(pca_features)
     return pca
 
-def convert_recalls_to_csv(recalls, args, severity=None):
+def convert_recalls_to_csv(recalls, args, corruption=None, severity=None):
     result = Result(
         timestamp= datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         backbone=args.backbone,
@@ -89,7 +89,9 @@ def convert_recalls_to_csv(recalls, args, severity=None):
         pca=args.pca_dim is not None,
         pca_dim=args.pca_dim,
         dataset=args.dataset_name,
-        corruption=args.corruption,
+        resize_H=args.resize[0],
+        resize_W=args.resize[1],
+        corruption=corruption,
         severity= severity,
         recall_1=recalls[0],
         recall_5=recalls[1],

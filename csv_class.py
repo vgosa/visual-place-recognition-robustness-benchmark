@@ -9,6 +9,8 @@ class Result:
     pca: bool
     pca_dim: int
     dataset: str
+    resize_H: int
+    resize_W: int
     corruption: str
     severity: int
     recall_1: float
@@ -25,6 +27,8 @@ class CorruptedResult:
     pca: bool
     pca_dim: int
     dataset: str
+    result_H: int
+    result_W: int
     corruption: str
     severity: int
     mCR_1: float
