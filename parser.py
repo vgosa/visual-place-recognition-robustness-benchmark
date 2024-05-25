@@ -32,11 +32,12 @@ def parse_arguments():
     parser.add_argument("--neg_samples_num", type=int, default=1000,
                         help="How many negatives to use to compute the hardest ones")
     parser.add_argument("--mining", type=str, default="partial", choices=["partial", "full", "random", "msls_weighted"])
+    parser.add_argument("--cosplace", action='store_true', help="Use cosplace pretrained")
     # Model parameters
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
                                  "resnet50conv4", "resnet50conv5", "resnet101conv4", "resnet101conv5",
-                                 "cct384", "vit", "transvpr", "selavpr"], help="_")
+                                 "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101"], help="_")
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],
                         help="When (and if) to apply the l2 norm with shallow aggregation layers")
     parser.add_argument("--aggregation", type=str, default="netvlad", choices=["netvlad", "gem", "spoc", "mac", "rmac", "crn", "rrm",

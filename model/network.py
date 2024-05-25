@@ -11,6 +11,7 @@ from transformers import ViTModel
 from google_drive_downloader import GoogleDriveDownloader as gdd
 from model.transvpr.feature_extractor import Extractor_base
 from model.transvpr.blocks import POOL
+from model.cosplace_model.cosplace_network import GeoLocalizationNet as cosplace_model
 
 from model.cct import cct_14_7x2_384
 from model.aggregation import Flatten
@@ -45,6 +46,15 @@ class LocalAdapt(nn.Module):
         x = self.relu(x)
         x = self.upconv2(x)
         return x
+
+class CosPlace(cosplace_model):
+    def __init__(self, args):
+        args.features_dim = args.fc_output_dim
+        super().__init__(args.backbone, args.fc_output_dim)
+    
+    def forward(self, x):
+        return super().forward(x)
+        
 
 
 class GeoLocalizationNet(nn.Module):

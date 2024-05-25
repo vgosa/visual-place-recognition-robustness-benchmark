@@ -44,7 +44,12 @@ def resume_model(args, model):
     # DataParallel, remove it to avoid errors when loading dict
     if list(state_dict.keys())[0].startswith('module'):
         state_dict = OrderedDict({k.replace('module.', ''): v for (k, v) in state_dict.items()})
+    if args.backbone == "transvpr":
+        state_dict = OrderedDict({f'backbone.{k}': v for (k, v) in state_dict.items()})
     model.load_state_dict(state_dict)
+    # if (args.backbone == "transvpr"):
+    #     patch_feat = model(input)
+    #     global_feat, attention_mask = model.pool(patch_feat)
     return model
 
 

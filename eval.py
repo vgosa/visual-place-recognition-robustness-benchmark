@@ -62,6 +62,8 @@ logging.info(f"The outputs are being saved in {args.save_dir}")
 ######################################### MODEL #########################################
 if args.backbone.startswith("selavpr"):
     model = network.SelaVPRNet(args)
+elif args.cosplace:
+    model = network.CosPlace(args)
 else:
     model = network.GeoLocalizationNet(args)
 
@@ -83,7 +85,8 @@ if args.backbone.startswith("selavpr"):
         pca = util.compute_pca(args, model, args.pca_dataset_folder, full_features_dim)
 
 if args.aggregation in ["netvlad", "crn"]:
-    args.features_dim *= args.netvlad_clusters
+    if not args.cosplace:
+        args.features_dim *= args.netvlad_clusters
 
 if args.off_the_shelf.startswith("radenovic") or args.off_the_shelf.startswith("naver"):
     if args.off_the_shelf.startswith("radenovic"):
@@ -141,7 +144,6 @@ if args.corruption is None:
 else:
     assert args.corruption == "all" or args.corruption in corruptions, f"Choose a valid corruption: {corruptions}"
     if args.corruption == "all":
-        results = []
         for corruption in corruptions:
             if corruption in ['rainy', 'day_to_night']:
                 print(f"Testing corruption=[{corruption}]")
@@ -151,7 +153,7 @@ else:
                                                        dataset_name=args.dataset_name,
                                                        split="test",
                                                        severity=1)
-                results.append(run_test(args, model, test_ds, pca, corruption, 1))
+                save_csv_to_file(args, [run_test(args, model, test_ds, pca, corruption, 1)])
                 continue
             print(f"Testing corruption=[{corruption}] with all severity levels")
             for severity in range(1, 6):
@@ -162,8 +164,7 @@ else:
                                                        dataset_name=args.dataset_name,
                                                        split="test",
                                                        severity=severity)
-                results.append(run_test(args, model, test_ds, pca, corruption, severity))
-        save_csv_to_file(args, results)
+                save_csv_to_file(args, [run_test(args, model, test_ds, pca, corruption, severity)])
     elif args.severity:
         if args.corruption in ['rainy', 'day_to_night']:
             print(f"Cannot test severity for corruption=[{args.corruption}]")
@@ -175,10 +176,8 @@ else:
                                                dataset_name=args.dataset_name,
                                                split="test",
                                                severity=args.severity)
-        result = run_test(args, model, test_ds, pca, args.corruption, args.severity)
-        save_csv_to_file(args, [result])
+        save_csv_to_file(args, [run_test(args, model, test_ds, pca, args.corruption, args.severity)])
     else:
-        results = []
         if args.corruption in ['rainy', 'day_to_night']:
             print(f"Testing corruption=[{args.corruption}]")
             test_ds = datasets_ws.CorruptedDataset(args=args,
@@ -187,8 +186,7 @@ else:
                                                     dataset_name=args.dataset_name,
                                                     split="test",
                                                     severity=1)
-            results.append(run_test(args, model, test_ds, pca, args.corruption, 1))
-            save_csv_to_file(args, results)
+            save_csv_to_file(args, [run_test(args, model, test_ds, pca, args.corruption, 1)])
             sys.exit()
         print(f"Testing corruption=[{args.corruption}] with all severity levels")
         for severity in range(1, 6):
@@ -199,5 +197,4 @@ else:
                                                    dataset_name=args.dataset_name,
                                                    split="test",
                                                    severity=severity)
-            results.append(run_test(args, model, test_ds, pca, args.corruption, severity))
-        save_csv_to_file(args, results)
+            save_csv_to_file(args, [run_test(args, model, test_ds, pca, args.corruption, severity)])
