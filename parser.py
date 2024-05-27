@@ -37,7 +37,7 @@ def parse_arguments():
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
                                  "resnet50conv4", "resnet50conv5", "resnet101conv4", "resnet101conv5",
-                                 "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101"], help="_")
+                                 "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101", "resnext101conv4", "resnext101conv5"], help="_")
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],
                         help="When (and if) to apply the l2 norm with shallow aggregation layers")
     parser.add_argument("--aggregation", type=str, default="netvlad", choices=["netvlad", "gem", "spoc", "mac", "rmac", "crn", "rrm",

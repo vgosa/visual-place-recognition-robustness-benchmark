@@ -187,7 +187,7 @@ def get_backbone(args):
     """
     # The aggregation layer works differently based on the type of architecture
     args.work_with_tokens = args.backbone.startswith('cct') or args.backbone.startswith('vit') or args.backbone.startswith('transvpr')
-    if args.backbone.startswith("resnet"):
+    if args.backbone.startswith("resnet") or args.backbone.startswith("resnext"):
         if args.pretrain in ['places', 'gldv2']:
             backbone = get_pretrained_model(args)
         elif args.backbone.startswith("resnet18"):
@@ -196,6 +196,8 @@ def get_backbone(args):
             backbone = torchvision.models.resnet50(pretrained=True)
         elif args.backbone.startswith("resnet101"):
             backbone = torchvision.models.resnet101(pretrained=True)
+        elif args.backbone.startswith("resnext101"):
+            backbone = torchvision.models.resnext101_32x8d(pretrained=True)
         for name, child in backbone.named_children():
             # Freeze layers before conv_3
             if name == "layer3":
