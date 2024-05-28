@@ -10,6 +10,7 @@ def parse_arguments():
     # Training parameters
     parser.add_argument("--train_batch_size", type=int, default=4,
                         help="Number of triplets (query, pos, negs) in a batch. Each triplet consists of 12 images")
+    parser.add_argument("--poolfix", action='store_true', help='Fix the aggregation.1.p layer in state_dict')
     parser.add_argument("--infer_batch_size", type=int, default=16,
                         help="Batch size for inference (caching and testing)")
     parser.add_argument("--criterion", type=str, default='triplet', help='loss to be used',
@@ -37,11 +38,12 @@ def parse_arguments():
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
                                  "resnet50conv4", "resnet50conv5", "resnet101conv4", "resnet101conv5",
-                                 "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101", "resnext101conv4", "resnext101conv5"], help="_")
+                                 "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101",
+                                 "resnext101conv4", "resnext101conv5", "dinov2"], help="_")
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],
                         help="When (and if) to apply the l2 norm with shallow aggregation layers")
     parser.add_argument("--aggregation", type=str, default="netvlad", choices=["netvlad", "gem", "spoc", "mac", "rmac", "crn", "rrm",
-                                                                               "cls", "seqpool", "pool"])
+                                                                               "cls", "seqpool", "pool", "mixvpr"])
     parser.add_argument('--netvlad_clusters', type=int, default=64, help="Number of clusters for NetVLAD layer.")
     parser.add_argument('--pca_dim', type=int, default=None, help="PCA dimension (number of principal components). If None, PCA is not used.")
     parser.add_argument('--fc_output_dim', type=int, default=None,

@@ -105,6 +105,14 @@ class SelaVPRNet(GeoLocalizationNet):
         local_feature = torch.nn.functional.normalize(x0, p=2, dim=-1)
         return local_feature, global_feature
 
+class DinoV2(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.model = torch.hub.load("serizba/salad", "dinov2_salad")
+        args.features_dim = 8448
+    
+    def forward(self, x):
+        return self.model(x)
 
 def get_aggregation(args):
     if args.aggregation == "gem":
@@ -126,6 +134,8 @@ def get_aggregation(args):
         return nn.Identity()
     elif args.aggregation in ['pool']:
         return POOL(256)
+    elif args.aggregation == "mixvpr":
+        return MixVPR()
 
 
 def get_pretrained_model(args):

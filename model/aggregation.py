@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.utils.data import DataLoader, SubsetRandomSampler
+from model.mixvpr.models.aggregators.mixvpr import MixVPR as MVPR
 
 import model.functional as LF
 import model.normalization as normalization
@@ -257,4 +258,11 @@ class CRN(NetVLAD):
         vlad = vlad.view(N, -1)  # Flatten
         vlad = F.normalize(vlad, p=2, dim=1)  # L2 normalize
         return vlad
+    
+class MixVPR(MVPR):
+    def __init__(self):
+        super().__init__(self)
+    
+    def forward(self, x):
+        return super.forward(x)
 
