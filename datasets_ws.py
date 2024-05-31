@@ -52,13 +52,19 @@ def collate_fn(batch):
 
 class PCADataset(data.Dataset):
     def __init__(self, args, datasets_folder="dataset", dataset_folder="pitts30k/images/train"):
+        self.resize = args.resize
+        self.test_method = args.test_method
         dataset_folder_full_path = join(datasets_folder, dataset_folder)
         if not os.path.exists(dataset_folder_full_path):
             raise FileNotFoundError(f"Folder {dataset_folder_full_path} does not exist")
         self.images_paths = sorted(glob(join(dataset_folder_full_path, "**", "*.jpg"), recursive=True))
     
     def __getitem__(self, index):
-        return base_transform(path_to_pil_img(self.images_paths[index]))
+        img = base_transform(path_to_pil_img(self.images_paths[index]))
+        if self.test_method == "hard_resize":
+            # self.test_method=="hard_resize" is the default, resizes all images to the same size.
+            img = T.functional.resize(img, self.resize)
+        return img
     
     def __len__(self):
         return len(self.images_paths)

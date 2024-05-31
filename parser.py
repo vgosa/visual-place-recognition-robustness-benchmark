@@ -33,7 +33,7 @@ def parse_arguments():
     parser.add_argument("--neg_samples_num", type=int, default=1000,
                         help="How many negatives to use to compute the hardest ones")
     parser.add_argument("--mining", type=str, default="partial", choices=["partial", "full", "random", "msls_weighted"])
-    parser.add_argument("--cosplace", action='store_true', help="Use cosplace pretrained")
+    parser.add_argument("--network", type=str, default=None, choices=["cricavpr", "cosplace"], help="Override the default model class and use the custom network for evaluation")
     # Model parameters
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
@@ -64,7 +64,7 @@ def parse_arguments():
     # Other parameters
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--num_workers", type=int, default=8, help="num_workers for all dataloaders")
-    parser.add_argument('--resize', type=int, default=[224,224], nargs=2, help="Resizing shape for images (HxW).")
+    parser.add_argument('--resize', type=int, default=None, nargs=2, help="Resizing shape for images (HxW).")
     parser.add_argument('--dense_feature_map_size', type=int, default=[61,61,128], nargs=3, 
                         help="size of dense feature map (a 61x61 grid 128-dim local features)")
     parser.add_argument('--test_method', type=str, default="hard_resize",

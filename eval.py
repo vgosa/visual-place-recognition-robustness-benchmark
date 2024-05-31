@@ -62,10 +62,13 @@ logging.info(f"The outputs are being saved in {args.save_dir}")
 ######################################### MODEL #########################################
 if args.backbone.startswith("selavpr"):
     model = network.SelaVPRNet(args)
-elif args.cosplace:
+elif args.network == "cosplace":
     model = network.CosPlace(args)
 elif args.backbone.startswith("dinov2"):
     model = network.DinoV2(args)
+elif args.network == "cricavpr":
+    args.features_dim = 14*768
+    model = network.CricaVPR(args)
 else:
     model = network.GeoLocalizationNet(args)
 
@@ -87,7 +90,7 @@ if args.backbone.startswith("selavpr"):
         pca = util.compute_pca(args, model, args.pca_dataset_folder, full_features_dim)
 
 if args.aggregation in ["netvlad", "crn"]:
-    if not args.cosplace and not args.backbone == "dinov2":
+    if args.network != 'cosplace' and args.backbone != "dinov2":
         args.features_dim *= args.netvlad_clusters
 
 if args.off_the_shelf.startswith("radenovic") or args.off_the_shelf.startswith("naver"):

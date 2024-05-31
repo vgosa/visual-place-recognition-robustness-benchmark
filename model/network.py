@@ -1,4 +1,5 @@
 
+import math
 import os
 import torch
 import logging
@@ -14,9 +15,10 @@ from model.transvpr.blocks import POOL
 from model.cosplace_model.cosplace_network import GeoLocalizationNet as cosplace_model
 
 from model.cct import cct_14_7x2_384
-from model.aggregation import Flatten
+from model.aggregation import Flatten, GeM
 from model.normalization import L2Norm
 from model.SelaVPR.backbone.vision_transformer import vit_small, vit_base, vit_large, vit_giant2
+from model.CricaVPR.backbone.vision_transformer import vit_base as vit_base_crica
 import model.aggregation as aggregation
 
 
@@ -104,6 +106,41 @@ class SelaVPRNet(GeoLocalizationNet):
         x0 = x0.permute(0, 2, 3, 1)
         local_feature = torch.nn.functional.normalize(x0, p=2, dim=-1)
         return local_feature, global_feature
+    
+class CricaVPR(nn.Module):
+    """The used networks are composed of a backbone and an aggregation layer.
+    """
+    def __init__(self, args, pretrained_foundation = False):
+        super().__init__()
+        print("Using Model: CricaVPR")
+        assert args.l2 == "before_pool", "Only L2 normalization before pooling is supported for CricaVPR."
+        self.backbone = get_vit_backbone(pretrained_foundation, args.foundation_model_path)
+        self.aggregation =  nn.Sequential(L2Norm(), GeM(work_with_tokens=None), Flatten())
+        
+
+        # In TransformerEncoderLayer, "batch_first=False" means the input tensors should be provided as (seq, batch, feature) to encode on the "seq" dimension.
+        # Our input tensor is provided as (batch, seq, feature), which performs encoding on the "batch" dimension.
+        encoder_layer = nn.TransformerEncoderLayer(d_model=768, nhead=16, dim_feedforward=2048, activation="gelu", dropout=0.1, batch_first=False)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=2) # Cross-image encoder
+
+    def forward(self, x):
+        x = self.backbone(x)        
+
+        B,P,D = x["x_prenorm"].shape
+        W = H = int(math.sqrt(P-1))
+        x0 = x["x_norm_clstoken"]
+        x_p = x["x_norm_patchtokens"].view(B,W,H,D).permute(0, 3, 1, 2) 
+
+        x10,x11,x12,x13 = self.aggregation(x_p[:,:,0:8,0:8]),self.aggregation(x_p[:,:,0:8,8:]),self.aggregation(x_p[:,:,8:,0:8]),self.aggregation(x_p[:,:,8:,8:])
+        x20,x21,x22,x23,x24,x25,x26,x27,x28 = self.aggregation(x_p[:,:,0:5,0:5]),self.aggregation(x_p[:,:,0:5,5:11]),self.aggregation(x_p[:,:,0:5,11:]),\
+                                        self.aggregation(x_p[:,:,5:11,0:5]),self.aggregation(x_p[:,:,5:11,5:11]),self.aggregation(x_p[:,:,5:11,11:]),\
+                                        self.aggregation(x_p[:,:,11:,0:5]),self.aggregation(x_p[:,:,11:,5:11]),self.aggregation(x_p[:,:,11:,11:])
+        x = [i.unsqueeze(1) for i in [x0,x10,x11,x12,x13,x20,x21,x22,x23,x24,x25,x26,x27,x28]]
+
+        x = torch.cat(x,dim=1)
+        x = self.encoder(x).view(B,14*D)
+        x = torch.nn.functional.normalize(x, p=2, dim=-1)
+        return x
 
 class DinoV2(nn.Module):
     def __init__(self, args):
@@ -307,6 +344,15 @@ def get_backbone(args):
     args.features_dim = get_output_channels_dim(backbone)  # Dinamically obtain number of channels in output
     return backbone
 
+def get_vit_backbone(pretrained_foundation, foundation_model_path):
+    backbone = vit_base_crica(patch_size=14,img_size=518,init_values=1,block_chunks=0)  
+    if pretrained_foundation:
+        assert foundation_model_path is not None, "Please specify foundation model path."
+        model_dict = backbone.state_dict()
+        state_dict = torch.load(foundation_model_path)
+        model_dict.update(state_dict.items())
+        backbone.load_state_dict(model_dict)
+    return backbone
 
 class VitWrapper(nn.Module):
     def __init__(self, vit_model, aggregation):
