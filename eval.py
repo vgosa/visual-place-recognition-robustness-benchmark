@@ -67,7 +67,6 @@ elif args.network == "cosplace":
 elif args.backbone.startswith("dinov2"):
     model = network.DinoV2(args)
 elif args.network == "cricavpr":
-    args.features_dim = 14*768
     model = network.CricaVPR(args)
 else:
     model = network.GeoLocalizationNet(args)
