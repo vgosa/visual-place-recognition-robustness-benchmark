@@ -49,6 +49,8 @@ def resume_model(args, model):
         state_dict = OrderedDict({k.replace('pool.p', 'aggregation.1.p'): v for (k, v) in state_dict.items()})
     if args.backbone == "transvpr":
         state_dict = OrderedDict({f'backbone.{k}': v for (k, v) in state_dict.items()})
+    if args.aggregation == "mixvpr":
+        state_dict = OrderedDict({k.replace('aggregator', 'aggregation'): v for (k, v) in state_dict.items()})
     model.load_state_dict(state_dict)
     # if (args.backbone == "transvpr"):
     #     patch_feat = model(input)

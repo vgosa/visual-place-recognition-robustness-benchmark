@@ -15,10 +15,11 @@ from model.transvpr.blocks import POOL
 from model.cosplace_model.cosplace_network import GeoLocalizationNet as cosplace_model
 
 from model.cct import cct_14_7x2_384
-from model.aggregation import Flatten, GeM
+from model.aggregation import Flatten, GeM, MixVPR
 from model.normalization import L2Norm
-from model.SelaVPR.backbone.vision_transformer import vit_small, vit_base, vit_large, vit_giant2
+from model.SelaVPR.backbone.vision_transformer import vit_large
 from model.CricaVPR.backbone.vision_transformer import vit_base as vit_base_crica
+from model.mixvpr.models.helper import get_backbone as get_backbone_mixvpr
 import model.aggregation as aggregation
 
 
@@ -172,7 +173,7 @@ def get_aggregation(args):
     elif args.aggregation in ['pool']:
         return POOL(256)
     elif args.aggregation == "mixvpr":
-        return MixVPR()
+        return MixVPR(mix_depth=4, out_channels=1024) # mix_depth=4 taken as default from https://github.com/amaralibey/MixVPR/
 
 
 def get_pretrained_model(args):
@@ -233,6 +234,9 @@ def get_backbone(args):
         AssertionError: If the image size for ViT is not 224 or 384.
     """
     # The aggregation layer works differently based on the type of architecture
+    if args.network == "mixvpr":
+        args.features_dim = 4096
+        return get_backbone_mixvpr(layers_to_crop=[4]) # The mixvpr pretrained checkpoint has a different naming scheme for its state_dict keys
     args.work_with_tokens = args.backbone.startswith('cct') or args.backbone.startswith('vit') or args.backbone.startswith('transvpr')
     if args.backbone.startswith("resnet") or args.backbone.startswith("resnext"):
         if args.pretrain in ['places', 'gldv2']:

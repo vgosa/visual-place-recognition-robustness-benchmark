@@ -64,10 +64,12 @@ if args.backbone.startswith("selavpr"):
     model = network.SelaVPRNet(args)
 elif args.network == "cosplace":
     model = network.CosPlace(args)
-elif args.backbone.startswith("dinov2"):
+elif args.network == "dinov2":
     model = network.DinoV2(args)
 elif args.network == "cricavpr":
     model = network.CricaVPR(args)
+# elif args.network == "mixvpr":
+#     model = network.MixVPRBase(args)
 else:
     model = network.GeoLocalizationNet(args)
 
@@ -89,7 +91,7 @@ if args.backbone.startswith("selavpr"):
         pca = util.compute_pca(args, model, args.pca_dataset_folder, full_features_dim)
 
 if args.aggregation in ["netvlad", "crn"]:
-    if args.network != 'cosplace' and args.backbone != "dinov2":
+    if args.network not in ['cosplace', 'cricavpr'] and args.backbone != "dinov2":
         args.features_dim *= args.netvlad_clusters
 
 if args.off_the_shelf.startswith("radenovic") or args.off_the_shelf.startswith("naver"):
