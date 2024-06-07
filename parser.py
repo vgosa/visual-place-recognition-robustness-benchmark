@@ -33,7 +33,7 @@ def parse_arguments():
     parser.add_argument("--neg_samples_num", type=int, default=1000,
                         help="How many negatives to use to compute the hardest ones")
     parser.add_argument("--mining", type=str, default="partial", choices=["partial", "full", "random", "msls_weighted"])
-    parser.add_argument("--network", type=str, default=None, choices=["cricavpr", "cosplace", "dinov2", "mixvpr"], help="Override the default model class and use the custom network for evaluation")
+    parser.add_argument("--network", type=str, default=None, choices=["cricavpr", "cosplace", "dinov2", "mixvpr", "gcl"], help="Override the default model class and use the custom network for evaluation")
     # Model parameters
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",

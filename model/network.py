@@ -142,6 +142,28 @@ class CricaVPR(nn.Module):
         x = self.encoder(x).view(B,14*D)
         x = torch.nn.functional.normalize(x, p=2, dim=-1)
         return x
+    
+class ResNetGCL(nn.Module):
+    # Default parameters as found in the https://github.com/nis-research/generalized_contrastive_loss repository
+    def __init__(self, args, global_pool="GeM", norm="L2", p=3):
+        super().__init__()
+        self.backbone = get_backbone(args)
+        for name, param in self.backbone.named_parameters():
+                n=param.size()[0]
+        self.feature_length=n
+        args.features_dim = get_output_channels_dim(self.backbone)
+        if global_pool == "GeM":
+            self.pool = GeM(p=p)
+        else:
+            self.pool = None
+        self.norm=norm
+
+    def forward(self, x0):
+        out = self.backbone.forward(x0)
+        out = self.pool.forward(out).squeeze(-1).squeeze(-1)
+        if self.norm == "L2":
+            out = nn.functional.normalize(out)
+        return out
 
 class DinoV2(nn.Module):
     def __init__(self, args):
@@ -372,5 +394,6 @@ class VitWrapper(nn.Module):
 
 def get_output_channels_dim(model):
     """Return the number of channels in the output of a model."""
+    print(model(torch.ones([1, 3, 224, 224])).shape[1])
     return model(torch.ones([1, 3, 224, 224])).shape[1]
 
