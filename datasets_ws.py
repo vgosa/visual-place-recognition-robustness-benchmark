@@ -177,6 +177,8 @@ class CorruptedDataset(data.Dataset):
         self.database_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.database_paths]).astype(float)
         self.queries_utms = np.array([(path.split("@")[1], path.split("@")[2]) for path in self.queries_paths]).astype(float)
         
+        print(f"There are {len(self.database_paths)} database photos, {len(self.queries_paths)} queries")
+        
         # Find soft_positives_per_query, which are within val_positive_dist_threshold (deafult 25 meters)
         knn = NearestNeighbors(n_jobs=-1)
         knn.fit(self.database_utms)

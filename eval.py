@@ -154,7 +154,7 @@ else:
     assert args.corruption == "all" or args.corruption in corruptions, f"Choose a valid corruption: {corruptions}"
     if args.corruption == "all":
         for corruption in corruptions:
-            if corruption in ['rainy', 'day_to_night']:
+            if corruption in ['rainy', 'day_to_night'] or corruption.startswith('queries_'):
                 print(f"Testing corruption=[{corruption}]")
                 test_ds = datasets_ws.CorruptedDataset(args=args,
                                                        corruption=corruption,
@@ -189,6 +189,7 @@ else:
     else:
         if args.corruption in ['rainy', 'day_to_night']:
             print(f"Testing corruption=[{args.corruption}]")
+            print(f"Dataset folder {args.datasets_folder}, corruption {args.corruption}, dataset name {args.dataset_name}")
             test_ds = datasets_ws.CorruptedDataset(args=args,
                                                     corruption=args.corruption,
                                                     datasets_folder=args.datasets_folder,

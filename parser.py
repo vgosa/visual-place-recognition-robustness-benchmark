@@ -38,6 +38,7 @@ def parse_arguments():
     parser.add_argument("--backbone", type=str, default="resnet18conv4",
                         choices=["alexnet", "vgg16", "resnet18conv4", "resnet18conv5",
                                  "resnet50conv4", "resnet50conv5", "resnet101conv4", "resnet101conv5",
+                                 "resnet152conv4", "resnet152conv5",
                                  "cct384", "vit", "transvpr", "selavpr", "cosplace", "ResNet50", "ResNet101",
                                  "resnext101conv4", "resnext101conv5", "dinov2"], help="_")
     parser.add_argument("--l2", type=str, default="before_pool", choices=["before_pool", "after_pool", "none"],

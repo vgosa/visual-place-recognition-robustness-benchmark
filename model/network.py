@@ -5,10 +5,11 @@ import torch
 import logging
 import torchvision
 from torch import nn
+import timm
 from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 from os.path import join
-from transformers import ViTModel
+from transformers import ViTModel, ViTForImageClassification
 from google_drive_downloader import GoogleDriveDownloader as gdd
 from model.transvpr.feature_extractor import Extractor_base
 from model.transvpr.blocks import POOL
@@ -113,7 +114,6 @@ class CricaVPR(nn.Module):
     """
     def __init__(self, args, pretrained_foundation = False):
         super().__init__()
-        print("Using Model: CricaVPR")
         assert args.l2 == "before_pool", "Only L2 normalization before pooling is supported for CricaVPR."
         self.backbone = get_vit_backbone(pretrained_foundation, args.foundation_model_path)
         self.aggregation =  nn.Sequential(L2Norm(), GeM(work_with_tokens=None), Flatten())
@@ -164,6 +164,21 @@ class ResNetGCL(nn.Module):
         if self.norm == "L2":
             out = nn.functional.normalize(out)
         return out
+    
+class VitGCL(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.backbone = timm.create_model('vit_base_patch16_384.orig_in21k_ft_in1k', pretrained=True)
+        # self.backbone.
+        self.backbone.head = nn.Identity()
+        # args.features_dim = self.backbone.num_features
+        # output_dim = self.backbone.num_features
+        args.features_dim = 768
+        print(self.backbone)
+    
+    def forward(self, x):
+        return self.backbone(x)
+        
 
 class DinoV2(nn.Module):
     def __init__(self, args):
@@ -269,6 +284,8 @@ def get_backbone(args):
             backbone = torchvision.models.resnet50(pretrained=True)
         elif args.backbone.startswith("resnet101"):
             backbone = torchvision.models.resnet101(pretrained=True)
+        elif args.backbone.startswith("resnet152"):
+            backbone = torchvision.models.resnet152(pretrained=True)
         elif args.backbone.startswith("resnext101"):
             backbone = torchvision.models.resnext101_32x8d(pretrained=True)
         for name, child in backbone.named_children():
