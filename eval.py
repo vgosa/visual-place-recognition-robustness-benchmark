@@ -69,8 +69,10 @@ elif args.network == "dinov2":
 elif args.network == "cricavpr":
     model = network.CricaVPR(args)
     args.features_dim = 14 * 768
-elif args.network == "gcl":
+elif args.network == "resnetgcl":
     model = network.ResNetGCL(args)
+elif args.network == "vitgcl":
+    model = network.VitGCL(args)
 else:
     model = network.GeoLocalizationNet(args)
 

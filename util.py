@@ -24,6 +24,18 @@ def get_flops(model, input_shape=(480, 640)):
     output = torchscan.utils.format_info(module_info)
     return re.findall("Floating Point Operations on forward: (.*)\n", output)[0]
 
+def get_model_size(model):
+    """Return the model size in MB"""
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+
+    size_all_mb = (param_size + buffer_size) / 1024**2
+    return ('model size: {:.3f}MB'.format(size_all_mb))
+
 
 def save_checkpoint(args, state, is_best, filename):
     model_path = join(args.save_dir, filename)
@@ -51,7 +63,14 @@ def resume_model(args, model):
         state_dict = OrderedDict({f'backbone.{k}': v for (k, v) in state_dict.items()})
     if args.aggregation == "mixvpr":
         state_dict = OrderedDict({k.replace('aggregator', 'aggregation'): v for (k, v) in state_dict.items()})
-    model.load_state_dict(state_dict)
+    # if args.network == 'vitgcl':
+    #     state_dict = OrderedDict({k: v for (k, v) in state_dict.items() if 'patch_embed' not in k or k in ['backbone.patch_embed.proj.weight', 'backbone.patch_embed.proj.bias']})
+    try:
+        print(state_dict.keys())
+        model.load_state_dict(state_dict)
+    except RuntimeError as e:
+        print('Ignoring "' + str(e) + '"')
+    # model.load_state_dict(state_dict)
     # if (args.backbone == "transvpr"):
     #     patch_feat = model(input)
     #     global_feat, attention_mask = model.pool(patch_feat)

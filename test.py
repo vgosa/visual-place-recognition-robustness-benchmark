@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from model.SelaVPR.local_matching import local_sim
 from model.SelaVPR.test import test as test_selavpr
-from util import convert_recalls_to_csv
+from util import convert_recalls_to_csv, get_flops, get_model_size
 
 
 def test_efficient_ram_usage(args, eval_ds, model, test_method="hard_resize", corruption=None, severity=None):
@@ -135,6 +135,9 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, corruption=N
     
     if args.efficient_ram_testing:
         return test_efficient_ram_usage(args, eval_ds, model, test_method, corruption, severity)
+    
+    logging.info(f"Output dimension of the model is {args.features_dim}, with {get_flops(model, args.resize)}")
+    logging.info(f"Model size is: {get_model_size(model)}")
     
     model = model.eval()
     with torch.no_grad():
