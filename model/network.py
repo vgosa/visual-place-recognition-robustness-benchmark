@@ -126,7 +126,6 @@ class CricaVPR(nn.Module):
 
     def forward(self, x):
         x = self.backbone(x)        
-
         B,P,D = x["x_prenorm"].shape
         W = H = int(math.sqrt(P-1))
         x0 = x["x_norm_clstoken"]
@@ -168,7 +167,7 @@ class ResNetGCL(nn.Module):
 class VitGCL(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.backbone = timm.create_model('vit_base_patch16_384.orig_in21k_ft_in1k', pretrained=True)
+        self.backbone = timm.create_model('vit_base_r50_s16_384', pretrained=True)
         # self.backbone.
         self.backbone.head = nn.Identity()
         # args.features_dim = self.backbone.num_features

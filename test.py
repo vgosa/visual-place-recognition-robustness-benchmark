@@ -1,4 +1,4 @@
-
+from fvcore.nn import FlopCountAnalysis
 import faiss
 import torch
 import logging
@@ -136,9 +136,6 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, corruption=N
     if args.efficient_ram_testing:
         return test_efficient_ram_usage(args, eval_ds, model, test_method, corruption, severity)
     
-    logging.info(f"Output dimension of the model is {args.features_dim}, with {get_flops(model, args.resize)}")
-    logging.info(f"Model size is: {get_model_size(model)}")
-    
     model = model.eval()
     with torch.no_grad():
         logging.debug("Extracting database features for evaluation/testing")
@@ -152,8 +149,13 @@ def test(args, eval_ds, model, test_method="hard_resize", pca=None, corruption=N
             all_features = np.empty((5 * eval_ds.queries_num + eval_ds.database_num, args.features_dim), dtype="float32")
         else:
             all_features = np.empty((len(eval_ds), args.features_dim), dtype="float32")
-
+        
+        tested = False
         for inputs, indices in tqdm(database_dataloader, ncols=100):
+            if not tested:
+                # logging.info(f"Output dimension of the model is {args.features_dim}, with {get_flops(model, args.resize)}")
+                logging.info(f"Model size is: {get_model_size(model)}")
+                tested = True
             features = model(inputs.to(args.device))
             features = features.cpu().numpy()
             if pca is not None:
